@@ -1,0 +1,17 @@
+[package]
+name = "truma-ekit-thermostat"
+version = "0.1.0"
+authors = ["Tom Knapen <tom@knapen.io>"]
+edition = "2021"
+
+[features]
+pio = ["esp-idf-sys/pio"]
+
+[dependencies]
+anyhow = { version = "1", features = ["backtrace"] }
+esp-idf-hal = "0.40"
+esp-idf-sys = { version = "0.32", features = ["binstart"] }
+truma-ekit-core = { path = "../truma-ekit-core" }
+
+[build-dependencies]
+embuild = "0.30"
