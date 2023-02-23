@@ -1,6 +1,6 @@
+use crate::types::{Percent, Temperature};
 use crate::{gpio::DigitalOutputPin, i2c::I2c};
 use std::time::Duration;
-use truma_ekit_core::types::{Percent, Temperature};
 
 pub struct Measurements {
     pub temperature: Temperature,

@@ -1697,7 +1697,9 @@ dependencies = [
 name = "truma-ekit-core"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "assert_approx_eq",
+ "esp-idf-hal",
 ]
 
 [[package]]

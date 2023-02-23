@@ -34,10 +34,8 @@ impl Thermostat {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        thermometer::{FakeTemperature, NoTemperature},
-        util::celsius,
-    };
+    use crate::thermometer::{FakeTemperature, NoTemperature};
+    use truma_ekit_core::util::celsius;
 
     #[test]
     fn returns_actual_temperature() {

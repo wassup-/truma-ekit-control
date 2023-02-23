@@ -1,10 +1,9 @@
-use crate::{
-    fan::Fan,
-    heating::HeatingCoil,
-    thermometer::Thermometer,
+use crate::{heating::HeatingCoil, thermometer::Thermometer};
+use truma_ekit_core::{
+    peripherals::fan::Fan,
+    types::Temperature,
     util::{celsius, format_temperature},
 };
-use truma_ekit_core::types::Temperature;
 
 pub enum EKitRunMode {
     Off,
@@ -114,11 +113,8 @@ impl<'a> EKit<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        gpio::DigitalOutputPin,
-        relay::Relay,
-        thermometer::{FakeTemperature, NoTemperature},
-    };
+    use crate::thermometer::{FakeTemperature, NoTemperature};
+    use truma_ekit_core::{gpio::DigitalOutputPin, peripherals::relay::Relay};
 
     #[test]
     fn is_initially_turned_off() {

@@ -1,17 +1,12 @@
-use crate::{adc::AdcInputPin, thermometer::Thermometer, util::celsius};
-use truma_ekit_core::types::Temperature;
+use crate::{adc::AdcInputPin, types::Temperature, util::celsius};
 
 pub struct TMP36<'a> {
     input: AdcInputPin<'a>,
-    temperature: Option<Temperature>,
 }
 
 impl<'a> TMP36<'a> {
     pub fn connected_to(input: AdcInputPin<'a>) -> Self {
-        TMP36 {
-            input,
-            temperature: None,
-        }
+        TMP36 { input }
     }
 
     fn adc_to_temperature(adc: u16) -> Temperature {
@@ -21,17 +16,10 @@ impl<'a> TMP36<'a> {
         let degrees = (voltage - 0.5) * 100.0;
         celsius(degrees)
     }
-}
 
-impl<'a> Thermometer for TMP36<'a> {
-    fn measure(&mut self) -> anyhow::Result<()> {
+    pub fn temperature(&mut self) -> anyhow::Result<Temperature> {
         let val = self.input.read()?;
-        self.temperature = Some(Self::adc_to_temperature(val));
-        Ok(())
-    }
-
-    fn temperature(&self) -> Option<Temperature> {
-        self.temperature.clone()
+        Ok(Self::adc_to_temperature(val))
     }
 }
 
@@ -42,7 +30,6 @@ mod tests {
     #[test]
     fn tmp36_convert_to_temperature() {
         let mut tmp36 = TMP36::connected_to(AdcInputPin::test(768));
-        tmp36.measure().unwrap();
         assert_eq!(tmp36.temperature().unwrap(), celsius(25.0));
     }
 }

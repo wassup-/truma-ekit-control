@@ -1,28 +1,22 @@
-use adc::AdcInputPin;
+mod ekit;
+mod heating;
+mod thermometer;
+
 use ekit::EKitRunMode;
 use esp_idf_hal::{
     adc::{config::Config, AdcDriver},
     gpio::PinDriver,
     prelude::Peripherals,
 };
-use fan::Fan;
-use gpio::DigitalOutputPin;
+use esp_idf_sys as _; // If using the `binstart` feature of `esp-idf-sys`, always keep this module imported
 use heating::HeatingCoil;
-use relay::Relay;
-use sensors::TMP36;
 use std::time::Duration;
-use util::{celsius, format_temperature};
-
-mod adc;
-mod ekit;
-mod fan;
-mod gpio;
-mod heating;
-mod relay;
-mod sensors;
-mod thermometer;
-mod thermostat;
-mod util;
+use truma_ekit_core::{
+    adc::AdcInputPin,
+    gpio::DigitalOutputPin,
+    peripherals::{fan::Fan, relay::Relay, tmp36::TMP36},
+    util::{celsius, format_temperature},
+};
 
 const SLEEP_DURATION: Duration = Duration::from_secs(1);
 

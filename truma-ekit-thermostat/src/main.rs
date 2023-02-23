@@ -1,18 +1,14 @@
-mod bme280;
 mod ekit;
-mod gpio;
-mod i2c;
-mod ssd1306;
 
-use bme280::BME280;
 use ekit::{EKit, EKitRunMode};
-use esp_idf_hal::i2c::*;
-use esp_idf_sys as _;
-use gpio::DigitalOutputPin;
+use esp_idf_hal::{gpio::PinDriver, i2c::*};
+use esp_idf_sys as _; // If using the `binstart` feature of `esp-idf-sys`, always keep this module imported
 use truma_ekit_core::{
+    gpio::DigitalOutputPin,
     measurement::Measurement,
+    peripherals::bme280::BME280,
     types::{Temperature, UnitTemperature},
-}; // If using the `binstart` feature of `esp-idf-sys`, always keep this module imported
+};
 
 fn main() -> anyhow::Result<()> {
     // It is necessary to call this function once. Otherwise some patches to the runtime
@@ -27,7 +23,8 @@ fn main() -> anyhow::Result<()> {
 
     let i2c = I2cDriver::new(i2c, sda, scl, &I2cConfig::default())?;
 
-    let mut bme280 = BME280::new(i2c, DigitalOutputPin::pin(peripherals.pins.gpio13));
+    let gpio13 = PinDriver::output(peripherals.pins.gpio13)?;
+    let mut bme280 = BME280::new(i2c, DigitalOutputPin::pin(gpio13));
 
     let mut ekit = EKit::new();
     let mut requested_temperature: Temperature = celsius(20.5);

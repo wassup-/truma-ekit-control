@@ -1,4 +1,4 @@
-use truma_ekit_core::{
+use crate::{
     measurement::{Formatter, Measurement},
     types::{Temperature, UnitTemperature},
 };

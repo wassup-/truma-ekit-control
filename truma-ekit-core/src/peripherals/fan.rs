@@ -1,4 +1,4 @@
-use crate::relay::Relay;
+use crate::peripherals::relay::Relay;
 
 pub struct Fan<'a> {
     relay: Relay<'a>,
@@ -10,8 +10,8 @@ impl<'a> Fan<'a> {
     }
 
     /// Returns `true` if the fan is currently turned on.
-    #[allow(dead_code)]
-    pub fn is_on(&self) -> bool {
+    #[cfg(test)]
+    pub fn is_turned_on(&self) -> bool {
         self.relay.is_closed()
     }
 
@@ -36,14 +36,14 @@ mod tests {
         let mut relay = Relay::connected_to(DigitalOutputPin::test(false));
         relay.open();
         assert!(
-            !Fan::new(relay).is_on(),
+            !Fan::new(relay).is_turned_on(),
             "fan incorrectly reports being turned on"
         );
 
         let mut relay = Relay::connected_to(DigitalOutputPin::test(false));
         relay.close();
         assert!(
-            Fan::new(relay).is_on(),
+            Fan::new(relay).is_turned_on(),
             "fan incorrectly reports being turned off"
         );
     }
@@ -54,7 +54,7 @@ mod tests {
         relay.open();
         let mut fan = Fan::new(relay);
         fan.turn_on();
-        assert!(fan.is_on(), "fan is not turned on");
+        assert!(fan.is_turned_on(), "fan is not turned on");
         assert!(fan.relay.is_closed(), "fan did not close relay");
     }
 
@@ -64,7 +64,7 @@ mod tests {
         relay.close();
         let mut fan = Fan::new(relay);
         fan.turn_off();
-        assert!(!fan.is_on(), "fan is not turned off");
+        assert!(!fan.is_turned_on(), "fan is not turned off");
         assert!(!fan.relay.is_closed(), "fan did not open relay");
     }
 }

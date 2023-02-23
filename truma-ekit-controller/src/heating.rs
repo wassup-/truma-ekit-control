@@ -1,4 +1,4 @@
-use crate::relay::Relay;
+use truma_ekit_core::peripherals::relay::Relay;
 
 pub struct HeatingCoil<'a> {
     relay: Relay<'a>,
@@ -10,8 +10,8 @@ impl<'a> HeatingCoil<'a> {
     }
 
     /// Returns `true` if the heating coil is currently turned on.
-    #[allow(dead_code)]
-    pub fn is_on(&self) -> bool {
+    #[cfg(test)]
+    pub fn is_turned_on(&self) -> bool {
         self.relay.is_closed()
     }
 
@@ -29,21 +29,21 @@ impl<'a> HeatingCoil<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::gpio::DigitalOutputPin;
+    use truma_ekit_core::gpio::DigitalOutputPin;
 
     #[test]
     fn is_on() {
         let mut relay = Relay::connected_to(DigitalOutputPin::test(false));
         relay.open();
         assert!(
-            !HeatingCoil::new(relay).is_on(),
+            !HeatingCoil::new(relay).is_turned_on(),
             "coil incorrectly reports being turned on"
         );
 
         let mut relay = Relay::connected_to(DigitalOutputPin::test(false));
         relay.close();
         assert!(
-            HeatingCoil::new(relay).is_on(),
+            HeatingCoil::new(relay).is_turned_on(),
             "coil incorrectly reports being turned off"
         );
     }
