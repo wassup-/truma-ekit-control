@@ -11,6 +11,7 @@ use esp_idf_hal::{
 use esp_idf_sys as _; // If using the `binstart` feature of `esp-idf-sys`, always keep this module imported
 use heating::HeatingCoil;
 use std::time::Duration;
+use thermometer::MemoizeTemperature;
 use truma_ekit_core::{
     adc::AdcInputPin,
     gpio::DigitalOutputPin,
@@ -39,7 +40,9 @@ fn main() -> anyhow::Result<()> {
         Fan::new(Relay::connected_to(DigitalOutputPin::pin(gpio7))),
         HeatingCoil::new(Relay::connected_to(DigitalOutputPin::pin(gpio8))),
         HeatingCoil::new(Relay::connected_to(DigitalOutputPin::pin(gpio9))),
-        Box::new(TMP36::connected_to(AdcInputPin::pin(gpio2, adc1))),
+        Box::new(MemoizeTemperature::new(TMP36::connected_to(
+            AdcInputPin::pin(gpio2, adc1),
+        ))),
     );
 
     loop {
