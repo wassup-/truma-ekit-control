@@ -3,7 +3,7 @@ use crate::{
     types::{Temperature, UnitTemperature},
 };
 
-pub fn celsius(temperature: f32) -> Temperature {
+pub const fn celsius(temperature: f32) -> Temperature {
     Measurement::new(temperature, UnitTemperature::celsius())
 }
 

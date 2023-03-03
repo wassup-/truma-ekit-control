@@ -1,3 +1,4 @@
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum EKitRunMode {
     Off,
     Half,
@@ -11,7 +12,7 @@ impl EKit {
         EKit
     }
 
-    pub fn set_run_mode(&mut self, run_mode: EKitRunMode) -> anyhow::Result<()> {
+    pub fn set_run_mode(&mut self, _run_mode: EKitRunMode) -> anyhow::Result<()> {
         todo!("set run mode")
     }
 }

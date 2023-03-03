@@ -1,5 +1,5 @@
-use crate::i2c::I2c;
+use esp_idf_hal::i2c::I2c;
 
-pub struct SSD1306<'a> {
-    i2c: Box<dyn I2c + 'a>,
+pub struct SSD1306<I2C: I2c> {
+    i2c: I2C,
 }

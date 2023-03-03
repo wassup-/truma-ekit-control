@@ -1,29 +1,40 @@
-use crate::gpio::DigitalOutputPin;
+use embedded_hal::digital::v2::{OutputPin, StatefulOutputPin};
 
-pub struct Relay<'a> {
-    pin: DigitalOutputPin<'a>,
+pub struct Relay<P: OutputPin> {
+    pin: P,
 }
 
-impl<'a> Relay<'a> {
+impl<P> Relay<P>
+where
+    P: OutputPin,
+{
     /// Returns a new relay connected to the given pin.
-    pub fn connected_to(pin: DigitalOutputPin<'a>) -> Self {
+    pub fn connected_to(pin: P) -> Self {
         Relay { pin }
     }
 
     /// Returns `true` if the relay is currently closed, i.e. current is currently flowing.
-    #[cfg(test)]
-    pub fn is_closed(&self) -> bool {
-        self.pin.is_set_high()
+    pub fn is_closed(&self) -> bool
+    where
+        P: StatefulOutputPin,
+    {
+        self.pin
+            .is_set_high()
+            .unwrap_or_else(|_| panic!("failed to check if relay is closed"))
     }
 
     /// Close the relay, i.e. let current flow.
     pub fn close(&mut self) {
-        self.pin.set_high().expect("failed to close relay")
+        self.pin
+            .set_high()
+            .unwrap_or_else(|_| panic!("failed to close relay"))
     }
 
     /// Open the relay, i.e. stops the current flow.
     pub fn open(&mut self) {
-        self.pin.set_low().expect("failed to open relay")
+        self.pin
+            .set_low()
+            .unwrap_or_else(|_| panic!("failed to open relay"))
     }
 }
 
@@ -34,26 +45,55 @@ mod tests {
     #[test]
     fn relay_is_closed() {
         assert!(
-            Relay::connected_to(DigitalOutputPin::test(true)).is_closed(),
+            Relay::connected_to(TestPin(true)).is_closed(),
             "relay incorrectly reports being open"
         );
         assert!(
-            !Relay::connected_to(DigitalOutputPin::test(false)).is_closed(),
+            !Relay::connected_to(TestPin(false)).is_closed(),
             "relay incorrectly reports being closed"
         );
     }
 
     #[test]
     fn relay_close_sets_pin_high() {
-        let mut relay = Relay::connected_to(DigitalOutputPin::test(false));
+        let mut relay = Relay::connected_to(TestPin(false));
         relay.close();
-        assert!(relay.pin.is_set_high(), "relay did not set pin high");
+        assert!(
+            relay.pin.is_set_high().unwrap(),
+            "relay did not set pin high"
+        );
     }
 
     #[test]
     fn relay_open_sets_pin_low() {
-        let mut relay = Relay::connected_to(DigitalOutputPin::test(true));
+        let mut relay = Relay::connected_to(TestPin(true));
         relay.open();
-        assert!(!relay.pin.is_set_high(), "relay did not set pin low");
+        assert!(relay.pin.is_set_low().unwrap(), "relay did not set pin low");
+    }
+
+    struct TestPin(bool);
+
+    impl OutputPin for TestPin {
+        type Error = std::convert::Infallible;
+
+        fn set_high(&mut self) -> Result<(), Self::Error> {
+            self.0 = true;
+            Ok(())
+        }
+
+        fn set_low(&mut self) -> Result<(), Self::Error> {
+            self.0 = false;
+            Ok(())
+        }
+    }
+
+    impl StatefulOutputPin for TestPin {
+        fn is_set_high(&self) -> Result<bool, Self::Error> {
+            Ok(self.0)
+        }
+
+        fn is_set_low(&self) -> Result<bool, Self::Error> {
+            Ok(!self.0)
+        }
     }
 }

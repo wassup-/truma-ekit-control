@@ -2,36 +2,36 @@ use crate::measurement::{Dimension, Measurement, Unit, UnitConverter};
 
 #[derive(Clone, PartialEq, Debug)]
 pub struct UnitTemperature {
-    symbol: String,
+    symbol: &'static str,
     converter: UnitConverter,
 }
 
 pub type Temperature = Measurement<UnitTemperature>;
 
 impl UnitTemperature {
-    fn new_with_coeff_constant(symbol: &str, coeff: f32, constant: f32) -> Self {
+    const fn new_with_coeff_constant(symbol: &'static str, coeff: f32, constant: f32) -> Self {
         UnitTemperature {
-            symbol: symbol.to_owned(),
+            symbol,
             converter: UnitConverter::Linear { coeff, constant },
         }
     }
 
-    pub fn kelvin() -> Self {
+    pub const fn kelvin() -> Self {
         UnitTemperature::new_with_coeff_constant("K", 1.0, 0.0)
     }
 
-    pub fn celsius() -> Self {
+    pub const fn celsius() -> Self {
         UnitTemperature::new_with_coeff_constant("°C", 1.0, -273.15)
     }
 
-    pub fn fahrenheit() -> Self {
-        UnitTemperature::new_with_coeff_constant("°F", 9.0 / 5.0, -459.67)
+    pub const fn fahrenheit() -> Self {
+        UnitTemperature::new_with_coeff_constant("°F", 1.8, -459.67)
     }
 }
 
 impl Unit for UnitTemperature {
     fn symbol(&self) -> &str {
-        &self.symbol
+        self.symbol
     }
 }
 

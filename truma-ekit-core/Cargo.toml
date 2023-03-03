@@ -8,6 +8,7 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1"
+embedded-hal = "0.2"
 esp-idf-hal = "0.40"
 
 [dev-dependencies]

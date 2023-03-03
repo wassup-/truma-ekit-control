@@ -27,7 +27,7 @@ pub struct Measurement<U> {
 }
 
 impl<U> Measurement<U> {
-    pub fn new(value: f32, unit: U) -> Self {
+    pub const fn new(value: f32, unit: U) -> Self {
         Measurement { value, unit }
     }
 }
@@ -36,14 +36,14 @@ impl<U: Dimension> Measurement<U> {
     /// Converts to a given unit.
     pub fn converted_to(&self, unit: U) -> Self {
         if self.unit == unit {
-            return Measurement::new(self.value, unit);
+            Measurement::new(self.value, unit)
         } else {
             let base_value = self.unit.converter().to_base_unit(self.value);
             if unit == U::base_unit() {
-                return Measurement::new(base_value, unit);
+                Measurement::new(base_value, unit)
             } else {
                 let unit_value = unit.converter().from_base_unit(base_value);
-                return Measurement::new(unit_value, unit);
+                Measurement::new(unit_value, unit)
             }
         }
     }
@@ -80,15 +80,15 @@ impl<U: Dimension> std::ops::Add for Measurement<U> {
 
     fn add(self, rhs: Self) -> Self::Output {
         if self.unit == rhs.unit {
-            return Measurement::new(self.value + rhs.value, self.unit);
+            Measurement::new(self.value + rhs.value, self.unit)
         } else {
-            return Measurement::new(
+            Measurement::new(
                 self.unit
                     .converter()
                     .to_base_unit(self.value)
                     .add(rhs.unit.converter().to_base_unit(rhs.value)),
                 U::base_unit(),
-            );
+            )
         }
     }
 }
@@ -98,15 +98,15 @@ impl<U: Dimension> std::ops::Sub for Measurement<U> {
 
     fn sub(self, rhs: Self) -> Self::Output {
         if self.unit == rhs.unit {
-            return Measurement::new(self.value - rhs.value, self.unit);
+            Measurement::new(self.value - rhs.value, self.unit)
         } else {
-            return Measurement::new(
+            Measurement::new(
                 self.unit
                     .converter()
                     .to_base_unit(self.value)
                     .sub(rhs.unit.converter().to_base_unit(rhs.value)),
                 U::base_unit(),
-            );
+            )
         }
     }
 }

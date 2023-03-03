@@ -1,5 +1,5 @@
 use esp_idf_hal::{
-    adc::{Adc, AdcChannelDriver, AdcDriver, Atten11dB, Attenuation},
+    adc::{Adc, AdcChannelDriver, AdcDriver, Attenuation},
     gpio::ADCPin,
 };
 
@@ -8,13 +8,13 @@ pub struct AdcInputPin<'a> {
 }
 
 impl<'a> AdcInputPin<'a> {
-    pub fn pin<P, A>(pin: P, driver: AdcDriver<'a, A>) -> Self
+    pub fn pin<P, ADC, ATTEN>(pin: P, driver: AdcDriver<'a, ADC>) -> Self
     where
         P: ADCPin,
-        A: Adc,
-        Atten11dB<A>: Attenuation<<P as ADCPin>::Adc>,
+        ADC: Adc,
+        ATTEN: Attenuation<<P as ADCPin>::Adc> + 'a,
     {
-        let input = AdcDriverAndChannelDriver {
+        let input = AdcDriverAndChannelDriver::<_, _, ATTEN> {
             driver,
             channel_driver: AdcChannelDriver::new(pin).unwrap(),
         };
@@ -39,17 +39,21 @@ trait AdcInput {
     fn read(&mut self) -> anyhow::Result<u16>;
 }
 
-struct AdcDriverAndChannelDriver<'a, ADC: Adc, T: ADCPin>
+struct AdcDriverAndChannelDriver<'a, ADC, GP, ATTEN>
 where
-    Atten11dB<ADC>: Attenuation<<T as ADCPin>::Adc>,
+    ADC: Adc,
+    GP: ADCPin,
+    ATTEN: Attenuation<<GP as ADCPin>::Adc>,
 {
     driver: AdcDriver<'a, ADC>,
-    channel_driver: AdcChannelDriver<'a, T, Atten11dB<ADC>>,
+    channel_driver: AdcChannelDriver<'a, GP, ATTEN>,
 }
 
-impl<'a, ADC: Adc, T: ADCPin> AdcInput for AdcDriverAndChannelDriver<'a, ADC, T>
+impl<'a, ADC, GP, ATTEN> AdcInput for AdcDriverAndChannelDriver<'a, ADC, GP, ATTEN>
 where
-    Atten11dB<ADC>: Attenuation<<T as ADCPin>::Adc>,
+    ADC: Adc,
+    GP: ADCPin,
+    ATTEN: Attenuation<<GP as ADCPin>::Adc>,
 {
     fn read(&mut self) -> anyhow::Result<u16> {
         let val = self.driver.read(&mut self.channel_driver)?;

@@ -1,30 +1,44 @@
 use crate::{heating::HeatingCoil, thermometer::Thermometer};
+use embedded_hal::digital::v2::OutputPin;
 use truma_ekit_core::{
     peripherals::fan::Fan,
     types::Temperature,
     util::{celsius, format_temperature},
 };
 
+#[derive(Copy, Clone, Debug)]
 pub enum EKitRunMode {
     Off,
     Half,
     Full,
 }
 
-pub struct EKit<'a> {
+const OVERTEMPERATURE_LIMIT: Temperature = celsius(90.0);
+
+pub struct EKit<F, C1, C2>
+where
+    F: OutputPin,
+    C1: OutputPin,
+    C2: OutputPin,
+{
     run_mode: EKitRunMode,
     is_overtemperature: bool,
-    fan: Fan<'a>,
-    heating_coil1: HeatingCoil<'a>,
-    heating_coil2: HeatingCoil<'a>,
+    fan: Fan<F>,
+    heating_coil1: HeatingCoil<C1>,
+    heating_coil2: HeatingCoil<C2>,
     thermometer: Box<dyn Thermometer>,
 }
 
-impl<'a> EKit<'a> {
+impl<F, C1, C2> EKit<F, C1, C2>
+where
+    F: OutputPin,
+    C1: OutputPin,
+    C2: OutputPin,
+{
     pub fn new(
-        fan: Fan<'a>,
-        heating_coil1: HeatingCoil<'a>,
-        heating_coil2: HeatingCoil<'a>,
+        fan: Fan<F>,
+        heating_coil1: HeatingCoil<C1>,
+        heating_coil2: HeatingCoil<C2>,
         thermometer: Box<dyn Thermometer>,
     ) -> Self {
         let mut ekit = EKit {
@@ -58,7 +72,7 @@ impl<'a> EKit<'a> {
     /// Signal that the run mode has changed.
     fn run_mode_changed(&mut self) {
         self.is_overtemperature = match self.current_temperature() {
-            Some(temperature) => temperature >= Self::overtemperature_limit(),
+            Some(temperature) => temperature >= OVERTEMPERATURE_LIMIT,
             None => true, // if we failed to get the temperature, we force overtemperature protection
         };
 
@@ -94,10 +108,6 @@ impl<'a> EKit<'a> {
         }
     }
 
-    fn overtemperature_limit() -> Temperature {
-        celsius(90.0)
-    }
-
     fn current_temperature(&mut self) -> Option<Temperature> {
         self.thermometer.measure().ok()?;
         match self.thermometer.temperature() {
@@ -114,14 +124,14 @@ impl<'a> EKit<'a> {
 mod tests {
     use super::*;
     use crate::thermometer::{FakeTemperature, NoTemperature};
-    use truma_ekit_core::{gpio::DigitalOutputPin, peripherals::relay::Relay};
+    use truma_ekit_core::peripherals::relay::Relay;
 
     #[test]
     fn is_initially_turned_off() {
         let ekit = EKit::new(
-            Fan::new(Relay::connected_to(DigitalOutputPin::test(false))),
-            HeatingCoil::new(Relay::connected_to(DigitalOutputPin::test(false))),
-            HeatingCoil::new(Relay::connected_to(DigitalOutputPin::test(false))),
+            Fan::new(Relay::connected_to(TestPin(false))),
+            HeatingCoil::new(Relay::connected_to(TestPin(false))),
+            HeatingCoil::new(Relay::connected_to(TestPin(false))),
             Box::new(FakeTemperature(celsius(21.0))),
         );
         assert!(!ekit.is_on())
@@ -130,31 +140,43 @@ mod tests {
     #[test]
     fn overtemperature_protection() {
         let ekit = EKit::new(
-            Fan::new(Relay::connected_to(DigitalOutputPin::test(false))),
-            HeatingCoil::new(Relay::connected_to(DigitalOutputPin::test(false))),
-            HeatingCoil::new(Relay::connected_to(DigitalOutputPin::test(false))),
-            Box::new(FakeTemperature(
-                EKit::overtemperature_limit() - celsius(0.1),
-            )),
+            Fan::new(Relay::connected_to(TestPin(false))),
+            HeatingCoil::new(Relay::connected_to(TestPin(false))),
+            HeatingCoil::new(Relay::connected_to(TestPin(false))),
+            Box::new(FakeTemperature(OVERTEMPERATURE_LIMIT - celsius(0.1))),
         );
         assert!(!ekit.is_overtemperature);
 
         let ekit = EKit::new(
-            Fan::new(Relay::connected_to(DigitalOutputPin::test(false))),
-            HeatingCoil::new(Relay::connected_to(DigitalOutputPin::test(false))),
-            HeatingCoil::new(Relay::connected_to(DigitalOutputPin::test(false))),
-            Box::new(FakeTemperature(
-                EKit::overtemperature_limit() + celsius(0.1),
-            )),
+            Fan::new(Relay::connected_to(TestPin(false))),
+            HeatingCoil::new(Relay::connected_to(TestPin(false))),
+            HeatingCoil::new(Relay::connected_to(TestPin(false))),
+            Box::new(FakeTemperature(OVERTEMPERATURE_LIMIT + celsius(0.1))),
         );
         assert!(ekit.is_overtemperature);
 
         let ekit = EKit::new(
-            Fan::new(Relay::connected_to(DigitalOutputPin::test(false))),
-            HeatingCoil::new(Relay::connected_to(DigitalOutputPin::test(false))),
-            HeatingCoil::new(Relay::connected_to(DigitalOutputPin::test(false))),
+            Fan::new(Relay::connected_to(TestPin(false))),
+            HeatingCoil::new(Relay::connected_to(TestPin(false))),
+            HeatingCoil::new(Relay::connected_to(TestPin(false))),
             Box::new(NoTemperature),
         );
         assert!(ekit.is_overtemperature);
+    }
+
+    struct TestPin(bool);
+
+    impl OutputPin for TestPin {
+        type Error = std::convert::Infallible;
+
+        fn set_high(&mut self) -> Result<(), Self::Error> {
+            self.0 = true;
+            Ok(())
+        }
+
+        fn set_low(&mut self) -> Result<(), Self::Error> {
+            self.0 = false;
+            Ok(())
+        }
     }
 }
