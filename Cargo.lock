@@ -556,11 +556,14 @@ dependencies = [
  "defmt",
  "embedded-io",
  "enumset",
+ "futures",
  "heapless",
+ "log",
  "no-std-net",
  "num_enum",
  "serde",
  "strum 0.23.0",
+ "strum_macros 0.23.1",
 ]
 
 [[package]]
@@ -1720,6 +1723,7 @@ dependencies = [
  "anyhow",
  "bme280-rs",
  "embedded-hal 0.2.7",
+ "embedded-svc 0.23.2",
  "embuild 0.30.5",
  "esp-idf-hal",
  "esp-idf-svc",

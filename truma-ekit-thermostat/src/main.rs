@@ -1,6 +1,5 @@
 mod ekit;
 mod peripherals;
-mod thermometer;
 mod thermostat;
 
 use bme280_rs::Bme280;

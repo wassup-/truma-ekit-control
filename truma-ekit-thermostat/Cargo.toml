@@ -11,8 +11,9 @@ pio = ["esp-idf-sys/pio"]
 anyhow = { version = "1", features = ["backtrace"] }
 bme280-rs = "0.1"
 embedded-hal = "0.2"
+embedded-svc = { version = "0.23", features = ["experimental"] }
 esp-idf-hal = "0.40"
-esp-idf-svc = "0.44"
+esp-idf-svc = { version = "0.44", features = ["experimental"] }
 esp-idf-sys = { version = "0.32", features = ["binstart"] }
 truma-ekit-core = { path = "../truma-ekit-core" }
 

@@ -1,7 +1,6 @@
 mod ekit;
 mod heating;
 mod peripherals;
-mod thermometer;
 
 use ekit::{EKit, EKitLocal};
 use esp_idf_hal::{
