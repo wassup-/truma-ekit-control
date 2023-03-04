@@ -3,7 +3,7 @@ mod heating;
 mod peripherals;
 mod thermometer;
 
-use ekit::EKitRunMode;
+use ekit::{EKit, EKitLocal};
 use esp_idf_hal::{
     adc::{AdcConfig, AdcDriver, Atten11dB},
     gpio::PinDriver,
@@ -12,9 +12,9 @@ use esp_idf_sys as _;
 use heating::HeatingCoil;
 use peripherals::SystemPeripherals;
 use std::time::Duration;
-use thermometer::MemoizeTemperature;
 use truma_ekit_core::{
     adc::AdcInputPin,
+    ekit::EKitRunMode,
     peripherals::{fan::Fan, relay::Relay, tmp36::TMP36},
 };
 
@@ -26,7 +26,7 @@ fn main() -> anyhow::Result<()> {
 
     let peripherals = SystemPeripherals::take();
 
-    let mut ekit = ekit::EKit::new(
+    let ekit = EKitLocal::new(
         Fan::new(Relay::connected_to(PinDriver::output(
             peripherals.fan.power,
         )?)),
@@ -36,23 +36,46 @@ fn main() -> anyhow::Result<()> {
         HeatingCoil::new(Relay::connected_to(PinDriver::output(
             peripherals.coil2.power,
         )?)),
-        Box::new(MemoizeTemperature::new(TMP36::connected_to(
-            AdcInputPin::pin::<_, _, Atten11dB<_>>(
-                peripherals.thermometer.voltage,
-                AdcDriver::new(
-                    peripherals.thermometer.adc,
-                    &AdcConfig::new().calibration(true),
-                )?,
-            ),
-        ))),
     );
 
-    let mut requested_run_mode = EKitRunMode::Off;
+    let mut runner = EKitRunner::new(
+        ekit,
+        TMP36::connected_to(AdcInputPin::pin::<_, _, Atten11dB<_>>(
+            peripherals.thermometer.voltage,
+            AdcDriver::new(
+                peripherals.thermometer.adc,
+                &AdcConfig::new().calibration(true),
+            )?,
+        )),
+    );
 
     loop {
-        // TODO: update requested run mode
-        ekit.set_run_mode(requested_run_mode);
-
+        runner.run()?;
         std::thread::sleep(SLEEP_DURATION);
+    }
+}
+
+struct EKitRunner<'a, E: EKit> {
+    ekit: E,
+    output: TMP36<'a>,
+    run_mode: EKitRunMode,
+}
+
+impl<'a, E: EKit> EKitRunner<'a, E> {
+    pub fn new(ekit: E, output: TMP36<'a>) -> Self {
+        EKitRunner {
+            ekit,
+            output,
+            run_mode: EKitRunMode::Off,
+        }
+    }
+
+    /// Run the e-kit.
+    pub fn run(&mut self) -> anyhow::Result<()> {
+        let output_temperature = self.output.measure_temperature().ok();
+        self.ekit.set_output_temperature(output_temperature);
+        // TODO: update run mode
+        self.ekit.request_run_mode(self.run_mode);
+        Ok(())
     }
 }

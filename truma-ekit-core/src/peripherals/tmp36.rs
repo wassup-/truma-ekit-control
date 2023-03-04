@@ -17,7 +17,7 @@ impl<'a> TMP36<'a> {
         celsius(degrees)
     }
 
-    pub fn temperature(&mut self) -> anyhow::Result<Temperature> {
+    pub fn measure_temperature(&mut self) -> anyhow::Result<Temperature> {
         let val = self.input.read()?;
         Ok(Self::adc_to_temperature(val))
     }
@@ -30,6 +30,6 @@ mod tests {
     #[test]
     fn tmp36_convert_to_temperature() {
         let mut tmp36 = TMP36::connected_to(AdcInputPin::test(768));
-        assert_eq!(tmp36.temperature().unwrap(), celsius(25.0));
+        assert_eq!(tmp36.measure_temperature().unwrap(), celsius(25.0));
     }
 }

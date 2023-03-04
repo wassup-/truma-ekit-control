@@ -52,7 +52,7 @@ impl<'a> MemoizeTemperature<'a> {
 
 impl<'a> Thermometer for MemoizeTemperature<'a> {
     fn measure(&mut self) -> anyhow::Result<()> {
-        match self.tmp36.temperature() {
+        match self.tmp36.measure_temperature() {
             Ok(temperature) => {
                 self.temperature = Some(temperature);
                 Ok(())

@@ -1,18 +1,15 @@
-#[derive(Copy, Clone, Eq, PartialEq, Debug)]
-pub enum EKitRunMode {
-    Off,
-    Half,
-    Full,
+use truma_ekit_core::ekit::{EKit as EKitCore, EKitRunMode};
+
+pub struct EKitHttp;
+
+impl EKitHttp {
+    pub fn new() -> Self {
+        EKitHttp
+    }
 }
 
-pub struct EKit;
-
-impl EKit {
-    pub fn new() -> Self {
-        EKit
-    }
-
-    pub fn set_run_mode(&mut self, _run_mode: EKitRunMode) -> anyhow::Result<()> {
-        todo!("set run mode")
+impl EKitCore for EKitHttp {
+    fn request_run_mode(&mut self, _run_mode: EKitRunMode) {
+        todo!("request run mode")
     }
 }

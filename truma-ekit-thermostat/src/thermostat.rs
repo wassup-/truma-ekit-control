@@ -1,5 +1,5 @@
-use crate::{celsius, ekit::EKitRunMode};
-use truma_ekit_core::types::Temperature;
+use crate::celsius;
+use truma_ekit_core::{ekit::EKitRunMode, types::Temperature};
 
 const FULL_CAPACITY_TRESHOLD: Temperature = celsius(1.5);
 
