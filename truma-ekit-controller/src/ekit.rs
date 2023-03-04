@@ -83,6 +83,12 @@ where
                     self.heating_coil2.turn_off();
                     self.fan.turn_off();
                 }
+                EKitRunMode::Cool => {
+                    log::info!("running fan only");
+                    self.fan.turn_on();
+                    self.heating_coil1.turn_off();
+                    self.heating_coil2.turn_off();
+                }
                 EKitRunMode::Half => {
                     log::info!("running at half capacity");
                     // turn on the fan before turning on the heating coils (in case the former fails)

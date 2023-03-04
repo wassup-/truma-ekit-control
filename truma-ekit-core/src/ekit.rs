@@ -1,6 +1,7 @@
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum EKitRunMode {
     Off,
+    Cool,
     Half,
     Full,
 }
