@@ -10,14 +10,15 @@ use esp_idf_hal::{
 use esp_idf_sys as _;
 use heating::HeatingCoil;
 use peripherals::SystemPeripherals;
-use std::time::Duration;
 use truma_ekit_core::{
     adc::AdcInputPin,
     ekit::EKitRunMode,
     peripherals::{fan::Fan, relay::Relay, tmp36::TMP36},
 };
 
-const SLEEP_DURATION: Duration = Duration::from_secs(1);
+const SLEEP_DURATION: std::time::Duration = std::time::Duration::from_secs(1);
+
+esp_idf_sys::esp_app_desc!();
 
 fn main() -> anyhow::Result<()> {
     esp_idf_sys::link_patches();

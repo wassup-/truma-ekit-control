@@ -12,6 +12,10 @@ use peripherals::SystemPeripherals;
 use thermostat::Thermostat;
 use truma_ekit_core::{ekit::EKit, util::celsius};
 
+const SLEEP_DURATION: std::time::Duration = std::time::Duration::from_secs(1);
+
+esp_idf_sys::esp_app_desc!();
+
 fn main() -> anyhow::Result<()> {
     esp_idf_sys::link_patches();
     esp_idf_svc::log::EspLogger::initialize_default();
@@ -38,5 +42,7 @@ fn main() -> anyhow::Result<()> {
             let run_mode = thermostat.suggested_ekit_run_mode(actual_temperature);
             ekit.request_run_mode(run_mode);
         }
+
+        std::thread::sleep(SLEEP_DURATION);
     }
 }
