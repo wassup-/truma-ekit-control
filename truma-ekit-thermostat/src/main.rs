@@ -33,12 +33,16 @@ fn main() -> anyhow::Result<()> {
     );
 
     let mut thermostat = Thermostat::new(celsius(20.5));
-    let mut ekit = ekit::EKitHttp::new();
+    thermostat.set_requested_temperature(celsius(21.0));
+
+    let mut ekit = ekit::EKitHttp::new("http://192.168.178.1");
 
     loop {
-        // TODO: update requested temperature
-        if let Some(actual_temperature) = bme280.read_temperature()? {
-            let actual_temperature = celsius(actual_temperature);
+        // // TODO: update requested temperature
+
+        let actual_temperature: Option<_> = bme280.read_temperature()?.map(celsius);
+
+        if let Some(actual_temperature) = actual_temperature {
             let run_mode = thermostat.suggested_ekit_run_mode(actual_temperature);
             ekit.request_run_mode(run_mode);
         }
