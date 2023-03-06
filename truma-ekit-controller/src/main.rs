@@ -1,20 +1,25 @@
 mod ekit;
 mod heating;
 mod peripherals;
+mod server;
+mod wifi;
 
 use ekit::{EKit, EKitLocal};
 use esp_idf_hal::{
     adc::{AdcConfig, AdcDriver, Atten11dB},
     gpio::PinDriver,
 };
+use esp_idf_svc::{eventloop::EspSystemEventLoop, nvs::EspDefaultNvsPartition};
 use esp_idf_sys as _;
 use heating::HeatingCoil;
 use peripherals::SystemPeripherals;
+use server::EKitHttpServer;
+use std::sync::{Arc, Mutex};
 use truma_ekit_core::{
     adc::AdcInputPin,
-    ekit::EKitRunMode,
     peripherals::{fan::Fan, relay::Relay, tmp36::TMP36},
 };
+use wifi::WifiAp;
 
 const SLEEP_DURATION: std::time::Duration = std::time::Duration::from_secs(1);
 
@@ -25,8 +30,13 @@ fn main() -> anyhow::Result<()> {
     esp_idf_svc::log::EspLogger::initialize_default();
 
     let peripherals = SystemPeripherals::take();
+    let sysloop = EspSystemEventLoop::take()?;
+    let nvs_default_partition = EspDefaultNvsPartition::take()?;
 
-    let ekit = EKitLocal::new(
+    let mut wifi_ap = WifiAp::new(peripherals.modem, sysloop, nvs_default_partition)?;
+    wifi_ap.start()?;
+
+    let ekit = Arc::new(Mutex::new(EKitLocal::new(
         Fan::new(Relay::connected_to(PinDriver::output(
             peripherals.fan.power,
         )?)),
@@ -36,7 +46,7 @@ fn main() -> anyhow::Result<()> {
         HeatingCoil::new(Relay::connected_to(PinDriver::output(
             peripherals.coil2.power,
         )?)),
-    );
+    )));
 
     let mut runner = EKitRunner::new(
         ekit,
@@ -49,6 +59,8 @@ fn main() -> anyhow::Result<()> {
         )),
     );
 
+    runner.start()?;
+
     loop {
         runner.run()?;
         std::thread::sleep(SLEEP_DURATION);
@@ -56,26 +68,30 @@ fn main() -> anyhow::Result<()> {
 }
 
 struct EKitRunner<'a, E: EKit> {
-    ekit: E,
+    ekit: Arc<Mutex<E>>,
     output: TMP36<'a>,
-    run_mode: EKitRunMode,
+    server: EKitHttpServer<E>,
 }
 
-impl<'a, E: EKit> EKitRunner<'a, E> {
-    pub fn new(ekit: E, output: TMP36<'a>) -> Self {
+impl<'a, E: EKit + 'static> EKitRunner<'a, E> {
+    pub fn new(ekit: Arc<Mutex<E>>, output: TMP36<'a>) -> Self {
         EKitRunner {
-            ekit,
+            ekit: ekit.clone(),
             output,
-            run_mode: EKitRunMode::Off,
+            server: EKitHttpServer::new(ekit).unwrap(),
         }
+    }
+
+    pub fn start(&mut self) -> anyhow::Result<()> {
+        self.server.start()?;
+        Ok(())
     }
 
     /// Run the e-kit.
     pub fn run(&mut self) -> anyhow::Result<()> {
         let output_temperature = self.output.measure_temperature().ok();
-        self.ekit.set_output_temperature(output_temperature);
-        // TODO: update run mode
-        self.ekit.request_run_mode(self.run_mode);
+        let mut ekit = self.ekit.lock().unwrap();
+        ekit.set_output_temperature(output_temperature);
         Ok(())
     }
 }

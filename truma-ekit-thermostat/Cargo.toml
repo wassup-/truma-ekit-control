@@ -16,6 +16,8 @@ esp-idf-hal = "0.40"
 esp-idf-svc = { version = "0.44", features = ["experimental"] }
 esp-idf-sys = { version = "0.32", features = ["binstart"] }
 log = "0.4"
+serde_urlencoded = "0.7"
+thiserror = "1"
 truma-ekit-core = { path = "../truma-ekit-core" }
 
 [build-dependencies]

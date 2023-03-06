@@ -1,11 +1,13 @@
 use esp_idf_hal::{
     gpio::{Gpio13, Gpio5, Gpio6},
     i2c::I2C0,
+    modem::Modem,
     prelude::Peripherals,
 };
 
 pub struct SystemPeripherals<I2C, SDA, SCL, P> {
     pub bme: BmePeripherals<I2C, SDA, SCL, P>,
+    pub modem: Modem,
 }
 
 impl SystemPeripherals<I2C0, Gpio5, Gpio6, Gpio13> {
@@ -18,6 +20,7 @@ impl SystemPeripherals<I2C0, Gpio5, Gpio6, Gpio13> {
                 scl: peripherals.pins.gpio6,
                 power: peripherals.pins.gpio13,
             },
+            modem: peripherals.modem,
         }
     }
 }

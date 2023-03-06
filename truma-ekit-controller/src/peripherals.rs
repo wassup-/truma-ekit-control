@@ -1,6 +1,7 @@
 use esp_idf_hal::{
     adc::ADC1,
     gpio::{AnyOutputPin, Gpio2},
+    modem::Modem,
     prelude::Peripherals,
 };
 
@@ -9,6 +10,7 @@ pub struct SystemPeripherals<ADC, GP> {
     pub coil1: CoilPeripherals,
     pub coil2: CoilPeripherals,
     pub thermometer: ThermometerPeripherals<ADC, GP>,
+    pub modem: Modem,
 }
 
 impl SystemPeripherals<ADC1, Gpio2> {
@@ -28,6 +30,7 @@ impl SystemPeripherals<ADC1, Gpio2> {
                 adc: peripherals.adc1,
                 voltage: peripherals.pins.gpio2,
             },
+            modem: peripherals.modem,
         }
     }
 }

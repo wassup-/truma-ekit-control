@@ -9,7 +9,7 @@ use truma_ekit_core::{
 
 const OVERTEMPERATURE_LIMIT: Temperature = celsius(90.0);
 
-pub trait EKit: EKitCore {
+pub trait EKit: EKitCore + Send {
     fn set_output_temperature(&mut self, output_temperature: Option<Temperature>);
 }
 
@@ -122,9 +122,9 @@ where
 
 impl<F, C1, C2> EKit for EKitLocal<F, C1, C2>
 where
-    F: OutputPin,
-    C1: OutputPin,
-    C2: OutputPin,
+    F: OutputPin + Send,
+    C1: OutputPin + Send,
+    C2: OutputPin + Send,
 {
     fn set_output_temperature(&mut self, output_temperature: Option<Temperature>) {
         EKitLocal::set_output_temperature(self, output_temperature);

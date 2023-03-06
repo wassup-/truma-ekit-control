@@ -10,6 +10,7 @@ edition = "2021"
 anyhow = "1"
 embedded-hal = "0.2"
 esp-idf-hal = "0.40"
+serde = { version = "1", features = ["serde_derive"] }
 
 [dev-dependencies]
 assert_approx_eq = "1"
