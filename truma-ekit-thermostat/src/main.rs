@@ -12,12 +12,13 @@ use esp_idf_svc::{eventloop::EspSystemEventLoop, nvs::EspDefaultNvsPartition};
 use esp_idf_sys as _;
 use peripherals::SystemPeripherals;
 use thermostat::Thermostat;
-use truma_ekit_core::{ekit::EKit, util::celsius};
+use truma_ekit_core::{ekit::EKit, types::Temperature, util::celsius};
 use wifi::WifiClient;
 
 const SLEEP_DURATION: std::time::Duration = std::time::Duration::from_secs(1);
 
-const EKIT_HOSTNAME: &str = "http://192.168.71.1/";
+/// The hostname of the e-kit controller.
+const EKIT_HOSTNAME: &str = "http://192.168.71.1";
 
 esp_idf_sys::esp_app_desc!();
 
@@ -42,21 +43,46 @@ fn main() -> anyhow::Result<()> {
         FreeRtos,
     );
 
-    let mut thermostat = Thermostat::new(celsius(20.5));
-    thermostat.set_requested_temperature(celsius(21.0));
+    let ekit = ekit::EKitHttp::new(EKIT_HOSTNAME, wifi);
+    let thermostat = Thermostat::new(celsius(20.5));
 
-    let mut ekit = ekit::EKitHttp::new(EKIT_HOSTNAME, wifi);
+    let mut runner = EKitRunner::new(ekit, thermostat, move || {
+        bme280.read_temperature().unwrap_or_default().map(celsius)
+    });
 
     loop {
-        // // TODO: update requested temperature
+        runner.run();
+        std::thread::sleep(SLEEP_DURATION);
+    }
+}
 
-        let actual_temperature: Option<_> = bme280.read_temperature()?.map(celsius);
+struct EKitRunner<E: EKit, F> {
+    ekit: E,
+    thermostat: Thermostat,
+    actual_temperature: F,
+}
+
+impl<E, F> EKitRunner<E, F>
+where
+    E: EKit,
+    F: FnMut() -> Option<Temperature>,
+{
+    pub fn new(ekit: E, thermostat: Thermostat, actual_temperature: F) -> Self {
+        EKitRunner {
+            ekit,
+            thermostat,
+            actual_temperature,
+        }
+    }
+
+    /// Run the e-kit.
+    pub fn run(&mut self) {
+        // TODO: update requested temperature
+        let actual_temperature = (self.actual_temperature)();
 
         if let Some(actual_temperature) = actual_temperature {
-            let run_mode = thermostat.suggested_ekit_run_mode(actual_temperature);
-            ekit.request_run_mode(run_mode);
+            let run_mode = self.thermostat.suggested_ekit_run_mode(actual_temperature);
+            self.ekit.request_run_mode(run_mode);
         }
-
-        std::thread::sleep(SLEEP_DURATION);
     }
 }

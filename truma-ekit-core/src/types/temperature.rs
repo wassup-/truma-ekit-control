@@ -1,6 +1,6 @@
 use crate::measurement::{Dimension, Measurement, Unit, UnitConverter};
 
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Copy, Clone, PartialEq, Debug)]
 pub struct UnitTemperature {
     symbol: &'static str,
     converter: UnitConverter,

@@ -29,7 +29,7 @@ where
     pub fn start(&mut self) -> Result<(), EKitServerError> {
         let ekit = self.ekit.clone();
         self.server
-            .fn_handler("/", Method::Post, move |mut req| {
+            .fn_handler("/run-mode", Method::Post, move |mut req| {
                 let (_, body) = req.split();
                 let mut buf = [0_u8; 1024];
                 let count = body.read(&mut buf)?;

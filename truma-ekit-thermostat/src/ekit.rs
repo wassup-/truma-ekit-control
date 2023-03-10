@@ -33,8 +33,11 @@ pub struct EKitHttp<'a> {
 
 impl<'a> EKitHttp<'a> {
     pub fn new(hostname: &'static str, wifi: WifiClient<'a>) -> Self {
+        // remove trailing slash from hostname
+        let hostname = hostname.strip_suffix('/').unwrap_or(hostname);
         let conn = EspHttpConnection::new(&Configuration::default()).unwrap();
         let client = HttpClient::wrap(conn);
+
         EKitHttp {
             hostname,
             client,
@@ -42,8 +45,8 @@ impl<'a> EKitHttp<'a> {
         }
     }
 
-    fn post(&mut self, payload: &[u8]) -> Result<(), Error> {
-        log::info!("POST {:?}", payload);
+    fn post(&mut self, path: &str, payload: &[u8]) -> Result<(), Error> {
+        log::info!("POST {} {:?}", path, payload);
 
         self.wifi.connect()?;
 
@@ -55,7 +58,8 @@ impl<'a> EKitHttp<'a> {
             ("content-length", &*content_length_header),
         ];
 
-        let mut req = self.client.post(self.hostname, &headers)?;
+        let url = format!("{}{}", self.hostname, path);
+        let mut req = self.client.post(&url, &headers)?;
         req.write_all(payload)?;
         req.flush()?;
 
@@ -92,7 +96,7 @@ impl<'a> EKitCore for EKitHttp<'a> {
         log::info!("requesting e-kit run mode {:?}...", run_mode);
 
         let payload = serde_urlencoded::to_string(PostEKitRunMode { run_mode }).unwrap();
-        match self.post(payload.as_bytes()) {
+        match self.post("/run-mode", payload.as_bytes()) {
             Ok(_) => log::info!("e-kit run mode requested"),
             Err(e) => log::error!("failed to request e-kit run mode ({})", e),
         }

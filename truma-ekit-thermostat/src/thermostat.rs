@@ -1,6 +1,8 @@
 use crate::celsius;
 use truma_ekit_core::{ekit::EKitRunMode, types::Temperature};
 
+/// The threshold for running the controller at full capacity.
+/// If the temperature difference is below this value, the controller will be run at half capacity.
 const FULL_CAPACITY_TRESHOLD: Temperature = celsius(1.5);
 
 pub struct Thermostat {
@@ -21,12 +23,12 @@ impl Thermostat {
 
     /// Get the suggested run mode for the given actual temperature.
     pub fn suggested_ekit_run_mode(&self, actual_temperature: Temperature) -> EKitRunMode {
-        if actual_temperature >= self.requested_temperature.clone() {
-            // the current temperature is equal to or higher than the requested temperature, turn off the heating
+        if actual_temperature >= self.requested_temperature {
+            // the actual temperature is equal to or higher than the requested temperature, turn off the heating
             EKitRunMode::Off
         } else {
-            // the current temperature is less than the requested temperature, turn on the heating
-            let temp_diff = self.requested_temperature.clone() - actual_temperature;
+            // the actual temperature is less than the requested temperature, turn on the heating
+            let temp_diff = self.requested_temperature - actual_temperature;
             if temp_diff < FULL_CAPACITY_TRESHOLD {
                 // run the heating at half capacity
                 EKitRunMode::Half

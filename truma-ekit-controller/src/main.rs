@@ -18,6 +18,7 @@ use std::sync::{Arc, Mutex};
 use truma_ekit_core::{
     adc::AdcInputPin,
     peripherals::{fan::Fan, relay::Relay, tmp36::TMP36},
+    types::Temperature,
 };
 use wifi::WifiAp;
 
@@ -36,7 +37,7 @@ fn main() -> anyhow::Result<()> {
     let mut wifi_ap = WifiAp::new(peripherals.modem, sysloop, nvs_default_partition)?;
     wifi_ap.start()?;
 
-    let ekit = Arc::new(Mutex::new(EKitLocal::new(
+    let ekit = EKitLocal::new(
         Fan::new(Relay::connected_to(PinDriver::output(
             peripherals.fan.power,
         )?)),
@@ -46,52 +47,55 @@ fn main() -> anyhow::Result<()> {
         HeatingCoil::new(Relay::connected_to(PinDriver::output(
             peripherals.coil2.power,
         )?)),
-    )));
-
-    let mut runner = EKitRunner::new(
-        ekit,
-        TMP36::connected_to(AdcInputPin::pin::<_, _, Atten11dB<_>>(
-            peripherals.thermometer.voltage,
-            AdcDriver::new(
-                peripherals.thermometer.adc,
-                &AdcConfig::new().calibration(true),
-            )?,
-        )),
     );
 
+    let mut tmp36 = TMP36::connected_to(AdcInputPin::pin::<_, _, Atten11dB<_>>(
+        peripherals.thermometer.voltage,
+        AdcDriver::new(
+            peripherals.thermometer.adc,
+            &AdcConfig::new().calibration(true),
+        )?,
+    ));
+
+    let mut runner = EKitRunner::new(ekit, move || tmp36.measure_temperature().ok());
     runner.start()?;
 
     loop {
-        runner.run()?;
+        runner.run();
         std::thread::sleep(SLEEP_DURATION);
     }
 }
 
-struct EKitRunner<'a, E: EKit> {
+struct EKitRunner<E: EKit, F> {
     ekit: Arc<Mutex<E>>,
-    output: TMP36<'a>,
     server: EKitHttpServer<E>,
+    output_temperature: F,
 }
 
-impl<'a, E: EKit + 'static> EKitRunner<'a, E> {
-    pub fn new(ekit: Arc<Mutex<E>>, output: TMP36<'a>) -> Self {
+impl<E, F> EKitRunner<E, F>
+where
+    E: EKit + 'static,
+    F: FnMut() -> Option<Temperature>,
+{
+    pub fn new(ekit: E, output_temperature: F) -> Self {
+        let ekit = Arc::new(Mutex::new(ekit));
         EKitRunner {
             ekit: ekit.clone(),
-            output,
             server: EKitHttpServer::new(ekit).unwrap(),
+            output_temperature,
         }
     }
 
+    /// Start the e-kit runner.
     pub fn start(&mut self) -> anyhow::Result<()> {
         self.server.start()?;
         Ok(())
     }
 
     /// Run the e-kit.
-    pub fn run(&mut self) -> anyhow::Result<()> {
-        let output_temperature = self.output.measure_temperature().ok();
+    pub fn run(&mut self) {
+        let output_temperature = (self.output_temperature)();
         let mut ekit = self.ekit.lock().unwrap();
         ekit.set_output_temperature(output_temperature);
-        Ok(())
     }
 }

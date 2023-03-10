@@ -7,6 +7,7 @@ use truma_ekit_core::{
     util::celsius,
 };
 
+/// The temperature treshold for entering overtemperature protection mode.
 const OVERTEMPERATURE_LIMIT: Temperature = celsius(90.0);
 
 pub trait EKit: EKitCore + Send {

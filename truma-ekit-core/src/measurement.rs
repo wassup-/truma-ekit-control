@@ -30,6 +30,14 @@ impl<U> Measurement<U> {
     pub const fn new(value: f32, unit: U) -> Self {
         Measurement { value, unit }
     }
+
+    /// Computes the absolute value of `self`.
+    pub fn abs(self) -> Self {
+        Measurement {
+            value: self.value.abs(),
+            unit: self.unit,
+        }
+    }
 }
 
 impl<U: Dimension> Measurement<U> {
