@@ -84,4 +84,4 @@ The [default configuration](truma-ekit-thermostat/src/peripherals.rs) assumes th
 
 ## Contributing
 
-Feel free to create an [issue](issues), or create a [pull request](pulls).
+Feel free to create an [issue](https://github.com/wassup-/truma-ekit-control/issues), or create a [pull request](https://github.com/wassup-/truma-ekit-control/pulls).
