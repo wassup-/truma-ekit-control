@@ -10,13 +10,16 @@ pio = ["esp-idf-sys/pio"]
 [dependencies]
 anyhow = { version = "1", features = ["backtrace"] }
 bme280-rs = "0.1"
+embedded-graphics = "*"
 embedded-hal = "0.2"
 embedded-svc = { version = "0.23", features = ["experimental"] }
 esp-idf-hal = "0.40"
 esp-idf-svc = { version = "0.44", features = ["experimental"] }
 esp-idf-sys = { version = "0.32", features = ["binstart"] }
 log = "0.4"
+rotary-encoder-hal = "0.5"
 serde_urlencoded = "0.7"
+ssd1306 = "0.7.1"
 thiserror = "1"
 truma-ekit-core = { path = "../truma-ekit-core" }
 

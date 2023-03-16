@@ -16,9 +16,14 @@ impl Thermostat {
         }
     }
 
+    /// Get the requested temperature.
+    pub fn requested_temperature(&self) -> Temperature {
+        self.requested_temperature
+    }
+
     /// Set the requested temperature.
-    pub fn set_requested_temperature(&mut self, requested_temperature: Temperature) {
-        self.requested_temperature = requested_temperature
+    pub fn set_requested_temperature(&mut self, temperature: Temperature) {
+        self.requested_temperature = temperature;
     }
 
     /// Get the suggested run mode for the given actual temperature.

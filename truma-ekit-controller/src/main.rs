@@ -18,6 +18,7 @@ use std::sync::{Arc, Mutex};
 use truma_ekit_core::{
     adc::AdcInputPin,
     peripherals::{fan::Fan, relay::Relay, tmp36::TMP36},
+    powersaving::Powered,
     types::Temperature,
 };
 use wifi::WifiAp;
@@ -49,15 +50,20 @@ fn main() -> anyhow::Result<()> {
         )?)),
     );
 
-    let mut tmp36 = TMP36::connected_to(AdcInputPin::pin::<_, _, Atten11dB<_>>(
+    let tmp36 = TMP36::connected_to(AdcInputPin::pin::<_, _, Atten11dB<_>>(
         peripherals.thermometer.voltage,
         AdcDriver::new(
             peripherals.thermometer.adc,
             &AdcConfig::new().calibration(true),
         )?,
     ));
+    let mut tmp36 = Powered::new(
+        tmp36,
+        PinDriver::output(peripherals.thermometer.vcc).unwrap(),
+    );
+    tmp36.power_down();
 
-    let mut runner = EKitRunner::new(ekit, move || tmp36.measure_temperature().ok());
+    let mut runner = EKitRunner::new(ekit, move || tmp36.power_up().measure_temperature().ok());
     runner.start()?;
 
     loop {

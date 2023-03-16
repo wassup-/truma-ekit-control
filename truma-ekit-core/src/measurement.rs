@@ -33,10 +33,15 @@ impl<U> Measurement<U> {
 
     /// Computes the absolute value of `self`.
     pub fn abs(self) -> Self {
-        Measurement {
-            value: self.value.abs(),
-            unit: self.unit,
-        }
+        Measurement::new(self.value.abs(), self.unit)
+    }
+}
+
+impl<U> std::ops::Neg for Measurement<U> {
+    type Output = Self;
+
+    fn neg(self) -> Self::Output {
+        Measurement::new(self.value.neg(), self.unit)
     }
 }
 
@@ -79,7 +84,12 @@ impl Formatter {
     }
 
     pub fn format<U: Unit>(&self, measurement: &Measurement<U>) -> String {
-        format!("{0:.prec$}", measurement.value, prec = self.precision)
+        format!(
+            "{0:.prec$}{1}",
+            measurement.value,
+            measurement.unit.symbol(),
+            prec = self.precision
+        )
     }
 }
 

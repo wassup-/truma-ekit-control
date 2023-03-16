@@ -1,24 +1,29 @@
+mod caching;
 mod ekit;
+mod input;
+mod output;
 mod peripherals;
 mod thermostat;
 mod wifi;
 
-use bme280_rs::Bme280;
-use esp_idf_hal::{
-    delay::FreeRtos,
-    i2c::{I2cConfig, I2cDriver},
-};
+use esp_idf_hal::adc::{AdcConfig, AdcDriver, Atten0dB};
 use esp_idf_svc::{eventloop::EspSystemEventLoop, nvs::EspDefaultNvsPartition};
 use esp_idf_sys as _;
+use output::Output;
 use peripherals::SystemPeripherals;
+use std::time::Duration;
 use thermostat::Thermostat;
-use truma_ekit_core::{ekit::EKit, types::Temperature, util::celsius};
+use truma_ekit_core::{
+    adc::AdcInputPin, ekit::EKit, throttle::Throttle, types::Temperature, util::celsius,
+};
 use wifi::WifiClient;
-
-const SLEEP_DURATION: std::time::Duration = std::time::Duration::from_secs(1);
 
 /// The hostname of the e-kit controller.
 const EKIT_HOSTNAME: &str = "http://192.168.71.1";
+/// The default requested temperature.
+const DEFAULT_REQUESTED_TEMPERATURE: Temperature = celsius(20.5);
+/// The step size to use when rotating the encoder.
+const INPUT_STEP_SIZE: Temperature = celsius(0.5);
 
 esp_idf_sys::esp_app_desc!();
 
@@ -33,56 +38,66 @@ fn main() -> anyhow::Result<()> {
     let mut wifi = WifiClient::new(peripherals.modem, sysloop, nvs_default_partition)?;
     wifi.start()?;
 
-    let mut bme280 = Bme280::new(
-        I2cDriver::new(
-            peripherals.bme.i2c,
-            peripherals.bme.sda,
-            peripherals.bme.scl,
-            &I2cConfig::default(),
-        )?,
-        FreeRtos,
+    let mut ekit = ekit::EKitHttp::new(EKIT_HOSTNAME, wifi);
+    let mut thermostat = Thermostat::new(DEFAULT_REQUESTED_TEMPERATURE);
+
+    let mut read_requested_temperature_adjustment = input::temperature_adjustment(
+        peripherals.rot.pin_a,
+        peripherals.rot.pin_b,
+        INPUT_STEP_SIZE,
+    );
+    let mut read_actual_temperature = input::ambient_temperature(
+        AdcInputPin::pin::<_, _, Atten0dB<_>>(
+            peripherals.temperature.voltage,
+            AdcDriver::new(
+                peripherals.temperature.adc,
+                &AdcConfig::default().calibration(true),
+            )?,
+        ),
+        peripherals.temperature.vcc,
     );
 
-    let ekit = ekit::EKitHttp::new(EKIT_HOSTNAME, wifi);
-    let thermostat = Thermostat::new(celsius(20.5));
+    let mut display = output::display(
+        peripherals.i2c.i2c,
+        peripherals.i2c.sda,
+        peripherals.i2c.scl,
+    );
 
-    let mut runner = EKitRunner::new(ekit, thermostat, move || {
-        bme280.read_temperature().unwrap_or_default().map(celsius)
-    });
+    let mut actual_temperature = caching::CachedTemperature::new(None);
+
+    let mut display_throttler = Throttle::max_runs_per_sec(10);
+    let mut request_throttler = Throttle::one_run_per(Duration::from_secs(2));
 
     loop {
-        runner.run();
-        std::thread::sleep(SLEEP_DURATION);
-    }
-}
-
-struct EKitRunner<E: EKit, F> {
-    ekit: E,
-    thermostat: Thermostat,
-    actual_temperature: F,
-}
-
-impl<E, F> EKitRunner<E, F>
-where
-    E: EKit,
-    F: FnMut() -> Option<Temperature>,
-{
-    pub fn new(ekit: E, thermostat: Thermostat, actual_temperature: F) -> Self {
-        EKitRunner {
-            ekit,
-            thermostat,
-            actual_temperature,
+        // adjust the requested temperature using the rotary encoder
+        if let Some(adjustment) = read_requested_temperature_adjustment() {
+            let requested_temperature = thermostat.requested_temperature() + adjustment;
+            thermostat.set_requested_temperature(requested_temperature);
+            // continue reading input as long as changes are requested
+            continue;
         }
-    }
 
-    /// Run the e-kit.
-    pub fn run(&mut self) {
-        // TODO: update requested temperature
-        let actual_temperature = (self.actual_temperature)();
+        // update the actual temperature
+        actual_temperature.update(read_actual_temperature());
 
-        if let Some(actual_temperature) = actual_temperature {
-            let run_mode = self.thermostat.suggested_ekit_run_mode(actual_temperature);
-            self.ekit.request_run_mode(run_mode);
-        }
+        display_throttler.throttle(|| {
+            let output = Output {
+                requested_temperature: thermostat.requested_temperature(),
+                actual_temperature: actual_temperature.last_known_temperature(),
+                wifi_connected: ekit.is_connected(),
+            };
+            display(output);
+        });
+
+        // run the e-kit based on the *last known* actual temperature
+        let actual_temperature = match actual_temperature.last_known_temperature() {
+            Some(temperature) => temperature,
+            _ => continue,
+        };
+
+        request_throttler.throttle(|| {
+            let run_mode = thermostat.suggested_ekit_run_mode(actual_temperature);
+            ekit.request_run_mode(run_mode);
+        })
     }
 }

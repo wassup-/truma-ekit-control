@@ -45,6 +45,10 @@ impl<'a> EKitHttp<'a> {
         }
     }
 
+    pub fn is_connected(&self) -> bool {
+        self.wifi.is_connected()
+    }
+
     fn post(&mut self, path: &str, payload: &[u8]) -> Result<(), Error> {
         log::info!("POST {} {:?}", path, payload);
 

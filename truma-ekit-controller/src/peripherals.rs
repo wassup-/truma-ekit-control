@@ -29,6 +29,7 @@ impl SystemPeripherals<ADC1, Gpio2> {
             thermometer: ThermometerPeripherals {
                 adc: peripherals.adc1,
                 voltage: peripherals.pins.gpio2,
+                vcc: peripherals.pins.gpio10.into(),
             },
             modem: peripherals.modem,
         }
@@ -46,4 +47,5 @@ pub struct CoilPeripherals {
 pub struct ThermometerPeripherals<ADC, GP> {
     pub adc: ADC,
     pub voltage: GP,
+    pub vcc: AnyOutputPin,
 }

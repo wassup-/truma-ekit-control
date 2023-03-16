@@ -61,4 +61,9 @@ impl<'a> WifiClient<'a> {
         }
         Ok(())
     }
+
+    /// Returns `true` if wifi is connected.
+    pub fn is_connected(&self) -> bool {
+        self.wifi.is_connected().unwrap_or(false)
+    }
 }
