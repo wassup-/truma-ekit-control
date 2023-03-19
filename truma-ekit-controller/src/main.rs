@@ -61,7 +61,7 @@ fn main() -> anyhow::Result<()> {
         tmp36,
         PinDriver::output(peripherals.thermometer.vcc).unwrap(),
     );
-    tmp36.power_down();
+    let mut tmp36 = tmp36.power_down();
 
     let mut runner = EKitRunner::new(ekit, move || tmp36.power_up().measure_temperature().ok());
     runner.start()?;
