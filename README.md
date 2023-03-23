@@ -9,7 +9,7 @@ The project consists of 2 main components, the [controller](#controller) and (op
 The controller is connected directly to the Truma E-Kit, and is responsible for driving the fan and heating coils.
 The controller will create a protected Wifi network, and will host an HTTP server that can be used to *request* a specific run mode.
 
-Currently the following 4 run modes are supported: 
+Currently the following 4 run modes are supported:
 - **Off** (everything is turned off)
 - **Half** (1 heating coil is turned on, fan is turned on)
 - **Full** (both heating coils are turned on, fan is turned on)
@@ -35,17 +35,19 @@ pub const WIFI_PASS: &str = "truma-ekit-pass";
 
 #### Temperatures
 
-The treshold for entering overtemperature protection can be configured by editing the [ekit.rs](truma-ekit-controller/src/ekit.rs) file.
+The treshold for entering and exiting overtemperature protection can be configured by editing the [overtemperature_protection.rs](truma-ekit-controller/src/overtemperature_protection.rs) file.
 
 ```rust
-/// The temperature treshold for entering overtemperature protection mode.
-const OVERTEMPERATURE_LIMIT: Temperature = celsius(90.0);
+/// Cooldown will be entered if the output temperature is greater than or equal to this limit.
+const COOLDOWN_ENTER: Temperature = celsius(90.0);
+/// Cooldown will be exited if the output temperature is less than than or equal to this limit.
+const COOLDOWN_EXIT: Temperature = celsius(50.0);
 ```
 
 The treshold for running the controller at full capacity can be configured by editing the [thermostat.rs](truma-ekit-thermostat/src/thermostat.rs) file.
 
 ```rust
-/// The threshold for running the controller at full capacity. 
+/// The threshold for running the controller at full capacity.
 /// If the temperature difference is below this value, the controller will be run at half capacity.
 const FULL_CAPACITY_TRESHOLD: Temperature = celsius(1.5);
 ```
