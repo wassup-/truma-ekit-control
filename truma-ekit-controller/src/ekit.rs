@@ -1,14 +1,11 @@
-use crate::heating::HeatingCoil;
+use crate::{heating::HeatingCoil, overtemperature_protection::OvertemperatureProtection};
 use embedded_hal::digital::v2::OutputPin;
 use truma_ekit_core::{
-    ekit::{EKit as EKitCore, EKitRunMode},
+    ekit::{EKit as EKitCore, EKitSystemRunMode, EKitUserRunMode},
+    measurement::Formatter,
     peripherals::fan::Fan,
     types::Temperature,
-    util::celsius,
 };
-
-/// The temperature treshold for entering overtemperature protection mode.
-const OVERTEMPERATURE_LIMIT: Temperature = celsius(90.0);
 
 pub trait EKit: EKitCore + Send {
     fn set_output_temperature(&mut self, output_temperature: Option<Temperature>);
@@ -20,11 +17,11 @@ where
     C1: OutputPin,
     C2: OutputPin,
 {
-    run_mode: EKitRunMode,
+    run_mode: EKitSystemRunMode,
     fan: Fan<F>,
     heating_coil1: HeatingCoil<C1>,
     heating_coil2: HeatingCoil<C2>,
-    is_overtemperature: bool,
+    overtemperature_protection: OvertemperatureProtection,
 }
 
 impl<F, C1, C2> EKitLocal<F, C1, C2>
@@ -39,73 +36,98 @@ where
         heating_coil2: HeatingCoil<C2>,
     ) -> Self {
         let mut ekit = EKitLocal {
-            run_mode: EKitRunMode::Off,
+            run_mode: EKitSystemRunMode::Off,
             fan,
             heating_coil1,
             heating_coil2,
-            is_overtemperature: false,
+            overtemperature_protection: OvertemperatureProtection::inactive(),
         };
-        ekit.run_peripherals();
+        ekit.enter_run_mode(EKitSystemRunMode::Off);
         ekit
     }
 
     /// Returns `true` if the e-kit is currently turned on.
     #[allow(dead_code)]
     pub fn is_on(&self) -> bool {
-        if self.is_overtemperature {
-            false
-        } else {
-            matches!(self.run_mode, EKitRunMode::Half | EKitRunMode::Full)
-        }
+        !matches!(self.run_mode, EKitSystemRunMode::Off)
     }
 
     /// Set the output temperature of the e-kit.
     pub fn set_output_temperature(&mut self, output_temperature: Option<Temperature>) {
-        self.is_overtemperature = match output_temperature {
-            Some(temperature) => temperature >= OVERTEMPERATURE_LIMIT,
-            None => true, // if we failed to get the temperature, we force overtemperature protection
-        };
-        self.run_peripherals()
+        if let Some(output_temperature) = output_temperature {
+            let formatter = Formatter::with_precision(2);
+            log::info!(
+                "output temperature: {}",
+                formatter.format(&output_temperature)
+            );
+        }
+
+        self.overtemperature_protection
+            .output_temperature_changed(output_temperature);
+
+        self.update_run_mode(None);
     }
 
-    /// Run the peripherals of the e-kit.
-    fn run_peripherals(&mut self) {
-        if self.is_overtemperature {
-            log::warn!("overtemperature protection active");
-            self.fan.turn_on();
-            self.heating_coil1.turn_off();
-            self.heating_coil2.turn_off();
-        } else {
-            match self.run_mode {
-                EKitRunMode::Off => {
-                    log::info!("turning off");
-                    // turn off the heating coils before turning off the fan (in case the former fails)
-                    self.heating_coil1.turn_off();
-                    self.heating_coil2.turn_off();
-                    self.fan.turn_off();
-                }
-                EKitRunMode::Cool => {
-                    log::info!("running fan only");
-                    self.fan.turn_on();
-                    self.heating_coil1.turn_off();
-                    self.heating_coil2.turn_off();
-                }
-                EKitRunMode::Half => {
-                    log::info!("running at half capacity");
-                    // turn on the fan before turning on the heating coils (in case the former fails)
-                    self.fan.turn_on();
-                    self.heating_coil1.turn_on();
-                    self.heating_coil2.turn_off();
-                }
-                EKitRunMode::Full => {
-                    log::info!("running at full capacity");
-                    // turn on the fan before turning on the heating coils (in case the former fails)
-                    self.fan.turn_on();
-                    self.heating_coil1.turn_on();
-                    self.heating_coil2.turn_on();
-                }
+    /// Request the e-kit run mode.
+    fn request_run_mode(&mut self, run_mode: EKitSystemRunMode) {
+        log::info!("request system run mode {:?}", run_mode);
+
+        // disallow changing the run mode when cooldown is active
+        if matches!(self.run_mode, EKitSystemRunMode::Cooldown) {
+            log::info!("cooldown active, request denied");
+            return;
+        }
+
+        if matches!(run_mode, EKitSystemRunMode::Off) {
+            self.overtemperature_protection.enter();
+        }
+
+        self.update_run_mode(Some(run_mode));
+    }
+
+    /// Update the e-kit run mode.
+    ///
+    /// Overtempetature protection forced run mode takes priority over `requested_run_mode`.
+    fn update_run_mode(&mut self, requested_run_mode: Option<EKitSystemRunMode>) {
+        if let Some(forced_mode) = self.overtemperature_protection.forced_run_mode() {
+            log::info!("forcing run mode {:?}", forced_mode);
+            self.enter_run_mode(forced_mode);
+        } else if let Some(requested_mode) = requested_run_mode {
+            self.enter_run_mode(requested_mode);
+        };
+    }
+
+    /// Enter the e-kit run mode.
+    fn enter_run_mode(&mut self, run_mode: EKitSystemRunMode) {
+        log::info!("entering run mode {:?}", run_mode);
+
+        match run_mode {
+            EKitSystemRunMode::Off => {
+                self.heating_coil1.turn_off();
+                self.heating_coil2.turn_off();
+                // turn off the fan after turning off the heating coils (in case the latter fails)
+                self.fan.turn_off();
+            }
+            EKitSystemRunMode::Cooldown | EKitSystemRunMode::Cool => {
+                self.fan.turn_on();
+                self.heating_coil1.turn_off();
+                self.heating_coil2.turn_off();
+            }
+            EKitSystemRunMode::Half => {
+                // turn on the fan before turning on the heating coils (in case the former fails)
+                self.fan.turn_on();
+                self.heating_coil1.turn_on();
+                self.heating_coil2.turn_off();
+            }
+            EKitSystemRunMode::Full => {
+                // turn on the fan before turning on the heating coils (in case the former fails)
+                self.fan.turn_on();
+                self.heating_coil1.turn_on();
+                self.heating_coil2.turn_on();
             }
         }
+
+        self.run_mode = run_mode;
     }
 }
 
@@ -115,9 +137,15 @@ where
     C1: OutputPin,
     C2: OutputPin,
 {
-    fn request_run_mode(&mut self, run_mode: EKitRunMode) {
-        self.run_mode = run_mode;
-        self.run_peripherals();
+    fn request_user_run_mode(&mut self, run_mode: EKitUserRunMode) {
+        log::info!("request user run mode {:?}", run_mode);
+
+        self.request_run_mode(match run_mode {
+            EKitUserRunMode::Off => EKitSystemRunMode::Off,
+            EKitUserRunMode::Cool => EKitSystemRunMode::Cool,
+            EKitUserRunMode::Half => EKitSystemRunMode::Half,
+            EKitUserRunMode::Full => EKitSystemRunMode::Full,
+        })
     }
 }
 
@@ -135,6 +163,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use embedded_hal::digital::v2::StatefulOutputPin;
     use truma_ekit_core::peripherals::relay::Relay;
 
     #[test]
@@ -169,24 +198,32 @@ mod tests {
             HeatingCoil::new(Relay::connected_to(TestPin(true))),
         )
         .is_on());
+        assert!(!EKitLocal::new(
+            Fan::new(Relay::connected_to(TestPin(true))),
+            HeatingCoil::new(Relay::connected_to(TestPin(false))),
+            HeatingCoil::new(Relay::connected_to(TestPin(true))),
+        )
+        .is_on());
     }
 
     #[test]
-    fn turns_on_and_off() {
+    fn update_run_mode_prioritizes_overtemperature_protection() {
         let mut ekit = EKitLocal::new(
-            Fan::new(Relay::connected_to(TestPin(true))),
-            HeatingCoil::new(Relay::connected_to(TestPin(true))),
-            HeatingCoil::new(Relay::connected_to(TestPin(true))),
+            Fan::new(Relay::connected_to(TestPin(false))),
+            HeatingCoil::new(Relay::connected_to(TestPin(false))),
+            HeatingCoil::new(Relay::connected_to(TestPin(false))),
         );
 
-        ekit.request_run_mode(EKitRunMode::Half);
-        assert!(ekit.is_on(), "failed to turn on");
+        ekit.update_run_mode(None);
+        assert_eq!(ekit.run_mode, EKitSystemRunMode::Off);
+        ekit.update_run_mode(Some(EKitSystemRunMode::Full));
+        assert_eq!(ekit.run_mode, EKitSystemRunMode::Full);
 
-        ekit.request_run_mode(EKitRunMode::Off);
-        assert!(!ekit.is_on(), "failed to turn off");
-
-        ekit.request_run_mode(EKitRunMode::Full);
-        assert!(ekit.is_on(), "failed to turn on");
+        ekit.overtemperature_protection.enter();
+        ekit.update_run_mode(None);
+        assert_eq!(ekit.run_mode, EKitSystemRunMode::Cooldown);
+        ekit.update_run_mode(Some(EKitSystemRunMode::Full));
+        assert_eq!(ekit.run_mode, EKitSystemRunMode::Cooldown);
     }
 
     #[test]
@@ -197,28 +234,83 @@ mod tests {
             HeatingCoil::new(Relay::connected_to(TestPin(false))),
         );
 
-        ekit.set_output_temperature(Some(OVERTEMPERATURE_LIMIT - celsius(0.1)));
-        assert!(
-            !ekit.is_overtemperature,
-            "failed to exit overtemperature protection"
+        ekit.run_mode = EKitSystemRunMode::Cool;
+
+        ekit.request_run_mode(EKitSystemRunMode::Off);
+        assert_eq!(
+            ekit.run_mode,
+            EKitSystemRunMode::Cooldown,
+            "failed to enter overtemperature protection"
         );
 
-        ekit.set_output_temperature(Some(OVERTEMPERATURE_LIMIT + celsius(0.1)));
-        assert!(
-            ekit.is_overtemperature,
+        ekit.run_mode = EKitSystemRunMode::Cool;
+
+        ekit.overtemperature_protection.enter();
+        ekit.update_run_mode(None);
+
+        assert_eq!(
+            ekit.run_mode,
+            EKitSystemRunMode::Cooldown,
             "failed to enter overtemperature protection"
         );
 
         ekit.set_output_temperature(None);
-        assert!(
-            ekit.is_overtemperature,
+        assert_eq!(
+            ekit.run_mode,
+            EKitSystemRunMode::Cooldown,
             "failed to stay in overtemperature protection"
         );
 
-        ekit.set_output_temperature(Some(celsius(10.0)));
+        ekit.overtemperature_protection.exit();
+        ekit.update_run_mode(None);
+        assert_eq!(
+            ekit.run_mode,
+            EKitSystemRunMode::Off,
+            "failed to turn exit overtemperature protection"
+        );
+    }
+
+    #[test]
+    fn turns_peripherals_on_and_off() {
+        let mut ekit = EKitLocal::new(
+            Fan::new(Relay::connected_to(TestPin(false))),
+            HeatingCoil::new(Relay::connected_to(TestPin(false))),
+            HeatingCoil::new(Relay::connected_to(TestPin(false))),
+        );
+
+        ekit.enter_run_mode(EKitSystemRunMode::Cool);
         assert!(
-            !ekit.is_overtemperature,
-            "failed to exit overtemperature protection"
+            ekit.fan.is_turned_on()
+                && !ekit.heating_coil1.is_turned_on()
+                && !ekit.heating_coil2.is_turned_on()
+        );
+
+        ekit.enter_run_mode(EKitSystemRunMode::Off);
+        assert!(
+            !ekit.fan.is_turned_on()
+                && !ekit.heating_coil1.is_turned_on()
+                && !ekit.heating_coil2.is_turned_on()
+        );
+
+        ekit.enter_run_mode(EKitSystemRunMode::Half);
+        assert!(
+            ekit.fan.is_turned_on()
+                && ekit.heating_coil1.is_turned_on()
+                && !ekit.heating_coil2.is_turned_on()
+        );
+
+        ekit.enter_run_mode(EKitSystemRunMode::Off);
+        assert!(
+            !ekit.fan.is_turned_on()
+                && !ekit.heating_coil1.is_turned_on()
+                && !ekit.heating_coil2.is_turned_on()
+        );
+
+        ekit.enter_run_mode(EKitSystemRunMode::Full);
+        assert!(
+            ekit.fan.is_turned_on()
+                && ekit.heating_coil1.is_turned_on()
+                && ekit.heating_coil2.is_turned_on()
         );
     }
 
@@ -235,6 +327,16 @@ mod tests {
         fn set_low(&mut self) -> Result<(), Self::Error> {
             self.0 = false;
             Ok(())
+        }
+    }
+
+    impl StatefulOutputPin for TestPin {
+        fn is_set_high(&self) -> Result<bool, Self::Error> {
+            Ok(self.0)
+        }
+
+        fn is_set_low(&self) -> Result<bool, Self::Error> {
+            Ok(!self.0)
         }
     }
 }

@@ -1,5 +1,5 @@
 use crate::celsius;
-use truma_ekit_core::{ekit::EKitRunMode, types::Temperature};
+use truma_ekit_core::{ekit::EKitUserRunMode, types::Temperature};
 
 /// The threshold for running the controller at full capacity.
 /// If the temperature difference is below this value, the controller will be run at half capacity.
@@ -27,19 +27,19 @@ impl Thermostat {
     }
 
     /// Get the suggested run mode for the given actual temperature.
-    pub fn suggested_ekit_run_mode(&self, actual_temperature: Temperature) -> EKitRunMode {
+    pub fn suggested_ekit_run_mode(&self, actual_temperature: Temperature) -> EKitUserRunMode {
         if actual_temperature >= self.requested_temperature {
             // the actual temperature is equal to or higher than the requested temperature, turn off the heating
-            EKitRunMode::Off
+            EKitUserRunMode::Off
         } else {
             // the actual temperature is less than the requested temperature, turn on the heating
             let temp_diff = self.requested_temperature - actual_temperature;
             if temp_diff < FULL_CAPACITY_TRESHOLD {
                 // run the heating at half capacity
-                EKitRunMode::Half
+                EKitUserRunMode::Half
             } else {
                 // run the heating at full capacity
-                EKitRunMode::Full
+                EKitUserRunMode::Full
             }
         }
     }
@@ -55,27 +55,27 @@ mod tests {
         let thermostat = Thermostat::new(celsius(21.0));
         assert_eq!(
             thermostat.suggested_ekit_run_mode(celsius(20.9)),
-            EKitRunMode::Half
+            EKitUserRunMode::Half
         );
         assert_eq!(
             thermostat.suggested_ekit_run_mode(celsius(20.0)),
-            EKitRunMode::Half
+            EKitUserRunMode::Half
         );
         assert_eq!(
             thermostat.suggested_ekit_run_mode(celsius(19.6)),
-            EKitRunMode::Half
+            EKitUserRunMode::Half
         );
         assert_eq!(
             thermostat.suggested_ekit_run_mode(celsius(19.5)),
-            EKitRunMode::Full
+            EKitUserRunMode::Full
         );
         assert_eq!(
             thermostat.suggested_ekit_run_mode(celsius(0.0)),
-            EKitRunMode::Full
+            EKitUserRunMode::Full
         );
         assert_eq!(
             thermostat.suggested_ekit_run_mode(celsius(-10.0)),
-            EKitRunMode::Full
+            EKitUserRunMode::Full
         );
     }
 
@@ -83,11 +83,11 @@ mod tests {
     fn actual_temperature_equal_to_requested_temperature() {
         assert_eq!(
             Thermostat::new(celsius(0.0)).suggested_ekit_run_mode(celsius(0.0)),
-            EKitRunMode::Off
+            EKitUserRunMode::Off
         );
         assert_eq!(
             Thermostat::new(celsius(21.0)).suggested_ekit_run_mode(celsius(21.0)),
-            EKitRunMode::Off
+            EKitUserRunMode::Off
         );
     }
 
@@ -95,11 +95,11 @@ mod tests {
     fn actual_temperature_higher_than_requested_temperature() {
         assert_eq!(
             Thermostat::new(celsius(21.0)).suggested_ekit_run_mode(celsius(21.1)),
-            EKitRunMode::Off
+            EKitUserRunMode::Off
         );
         assert_eq!(
             Thermostat::new(celsius(0.0)).suggested_ekit_run_mode(celsius(1.0)),
-            EKitRunMode::Off
+            EKitUserRunMode::Off
         );
     }
 }

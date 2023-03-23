@@ -97,7 +97,7 @@ fn main() -> anyhow::Result<()> {
 
         request_throttler.throttle(|| {
             let run_mode = thermostat.suggested_ekit_run_mode(actual_temperature);
-            ekit.request_run_mode(run_mode);
+            ekit.request_user_run_mode(run_mode);
         })
     }
 }

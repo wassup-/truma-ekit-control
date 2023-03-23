@@ -38,7 +38,7 @@ where
                 log::info!("e-kit run mode {:?} requested", post.run_mode);
 
                 let mut ekit = ekit.lock()?;
-                ekit.request_run_mode(post.run_mode);
+                ekit.request_user_run_mode(post.run_mode);
 
                 req.into_ok_response()?;
 

@@ -11,7 +11,7 @@ use esp_idf_svc::{
     http::client::{Configuration, EspHttpConnection},
 };
 use esp_idf_sys::EspError;
-use truma_ekit_core::ekit::{EKit as EKitCore, EKitRunMode, PostEKitRunMode};
+use truma_ekit_core::ekit::{EKit as EKitCore, EKitUserRunMode, PostEKitRunMode};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -96,7 +96,7 @@ impl<'a> EKitHttp<'a> {
 }
 
 impl<'a> EKitCore for EKitHttp<'a> {
-    fn request_run_mode(&mut self, run_mode: EKitRunMode) {
+    fn request_user_run_mode(&mut self, run_mode: EKitUserRunMode) {
         log::info!("requesting e-kit run mode {:?}...", run_mode);
 
         let payload = serde_urlencoded::to_string(PostEKitRunMode { run_mode }).unwrap();

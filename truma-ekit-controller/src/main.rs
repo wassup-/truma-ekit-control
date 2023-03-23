@@ -1,5 +1,6 @@
 mod ekit;
 mod heating;
+mod overtemperature_protection;
 mod peripherals;
 mod server;
 mod wifi;
