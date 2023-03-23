@@ -77,12 +77,14 @@ The [default configuration](truma-ekit-controller/src/peripherals.rs) assumes th
 ### Thermostat
 
 The thermostat consists of the following hardware components:
-- **BME280** (environmental sensor) used to measure the ambient temperature
+- **TMP36** (temperature sensor) used to measure the ambient temperature
+- **SSD1306** (display) used to display information
 
 The [default configuration](truma-ekit-thermostat/src/peripherals.rs) assumes the following connections:
-- **BME280 SDA** connected to **GPIO5**
-- **BME280 SCL** connected to **GPIO6**
-- **BME280 VCC** connected to **GPIO13**
+- **TMP36** connected to **GPIO2**
+- **SSD1306 SDA** connected to **GPIO5**
+- **SSD1306 SCL** connected to **GPIO6**
+- **SSD1306 VCC** connected to **GPIO13**
 
 ## Contributing
 
